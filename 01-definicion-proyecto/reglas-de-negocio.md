@@ -20,7 +20,7 @@ Lista de invariantes y políticas que el sistema debe garantizar.
 
 ## 4. Incentivos (Bonos y Vales)
 - **Cálculo de Bono**: `Bono Diario = Σ (Valor Lavado * Porcentaje Lavador)`.
-- **Descuento de Vales**: Los vales se descuentan del bono acumulado en el periodo correspondiente. Si el bono &lt; cuota, queda saldo pendiente.
+- **Descuento de Vales**: Los vales se descuentan del bono acumulado en el periodo correspondiente. Si el bono < cuota, queda saldo pendiente.
 
 ## 5. Financiero
 - **Rendimiento Operativo**: Se calcula como `R = Ingresos – (Gastos + Bonos)`. Se recalcula ante cualquier modificación histórica.

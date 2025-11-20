@@ -8,22 +8,22 @@ La documentación está organizada en los siguientes módulos para facilitar su 
 
 ### 📂 01-definicion-proyecto
 Documentos de alto nivel sobre qué es el proyecto y qué debe hacer.
-- <a>Visión y Alcance</a>: Objetivos, justificación y límites del proyecto.
-- <a>Historias de Usuario</a>: Requerimientos funcionales detallados por rol.
-- <a>Reglas de Negocio</a>: Políticas invariantes del dominio (tarifas, bonos, estados).
-- <a>Glosario del Dominio</a>: Diccionario de términos ubicuos (DDD).
-- <a>Plan de Trabajo</a>: Asignación de historias de usuario por desarrollador.
+- [Visión y Alcance](01-definicion-proyecto/vision-y-alcance.md): Objetivos, justificación y límites del proyecto.
+- [Historias de Usuario](01-definicion-proyecto/historias-de-usuario.md): Requerimientos funcionales detallados por rol.
+- [Reglas de Negocio](01-definicion-proyecto/reglas-de-negocio.md): Políticas invariantes del dominio (tarifas, bonos, estados).
+- [Glosario del Dominio](01-definicion-proyecto/glosario.md): Diccionario de términos ubicuos (DDD).
+- [Plan de Trabajo](01-definicion-proyecto/plan-de-trabajo.md): Asignación de historias de usuario por desarrollador.
 
 ### 📂 02-arquitectura
 Detalles técnicos para los desarrolladores.
-- <a>Visión General y Stack</a>: Diagrama de componentes y tecnologías (FastAPI, React, Postgres).
-- <a>Modelo de Datos</a>: Esquemas de base de datos y entidades.
-- <a>APIs y Contratos</a>: Definición de endpoints y comunicación.
+- [Visión General y Stack](02-arquitectura/vision-general.md): Diagrama de componentes y tecnologías (FastAPI, React, Postgres).
+- [Modelo de Datos](02-arquitectura/modelo-datos.md): Esquemas de base de datos y entidades.
+- [APIs y Contratos](02-arquitectura/apis.md): Definición de endpoints y comunicación.
 
 ### 📂 03-manuales
 Guías de uso y operación.
-- <a>Guía de Despliegue</a>: Cómo levantar el proyecto con Docker Compose.
-- <a>Manual de Usuario</a>: Guía para el Administrador Operativo y Global.
+- [Guía de Despliegue](03-manuales/despliegue.md): Cómo levantar el proyecto con Docker Compose.
+- [Manual de Usuario](03-manuales/usuario.md): Guía para el Administrador Operativo y Global.
 
 ---
 

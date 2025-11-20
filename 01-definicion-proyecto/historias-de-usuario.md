@@ -15,7 +15,7 @@
 - **HU-12**: Selección tipo de lavado.
 - **HU-13**: Asignación de lavador.
 - **HU-14**: Servicio con o sin parqueo.
-- **HU-15**: Gestión estados (En espera -&gt; Proceso -&gt; Terminado).
+- **HU-15**: Gestión estados (En espera → Proceso → Terminado).
 - **HU-16**: Timestamps automáticos en cambios de estado.
 
 ## Tarifas y Comercial
