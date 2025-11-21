@@ -1,0 +1,754 @@
+@startuml
+skinparam packageStyle rectangle
+ 
+ ' Layout tuning: prefer orthogonal/polyline connectors and increase spacing
+ ' Note: Graphviz/PlantUML version-dependent; these guide the renderer toward straighter lines
+ skinparam splines ortho
+ skinparam splines polyline
+ skinparam linetype ortho
+ skinparam nodesep 60
+ skinparam ranksep 60
+ skinparam padding 10
+ skinparam dpi 150
+
+skinparam package<<Domain>> {
+  BackgroundColor #E8F5E9
+  BorderColor #4CAF50
+}
+skinparam package<<Application>> {
+  BackgroundColor #E3F2FD
+  BorderColor #2196F3
+}
+skinparam package<<Infrastructure>> {
+  BackgroundColor #FFF3E0
+  BorderColor #FF9800
+}
+
+title Sistema de Gestión de Lavadero y Parqueadero - Arquitectura DDD
+
+' ========================================
+' CAPA DE DOMINIO (Domain Layer)
+' ========================================
+
+package "Domain Layer" <<Domain>> {
+  
+  ' ===== USUARIOS Y ROLES =====
+  package "Users & Authentication" {
+    
+    enum UserRole {
+      GLOBAL_ADMIN
+      OP_ADMIN
+      WASHER
+    }
+    
+    abstract class User {
+      - id: int
+      - username: string
+      - password_hash: string
+      - email: string
+      - is_active: bool
+      - created_at: datetime
+      + authenticate(password: string): bool
+      + updatePassword(new_password: string): void
+      + recoverPassword(): void
+      + deactivate(): void
+      + hasPermission(action: string): bool
+    }
+    
+    class GlobalAdmin {
+      - business_name: string
+      - contact_number: string
+      - permissions: list<string>
+      + createEmployeeAccount(data): User
+      + updateRates(rate_data): void
+      + generateBusinessReport(period): Report
+      + deleteExpense(expense_id): void
+      + updateExpense(expense_id, data): void
+      + configureBonuses(percentages): void
+      + manageAgreements(company_data): CompanyAgreement
+    }
+    
+    class OperationalAdmin {
+      - shift_start: datetime
+      - shift_end: datetime
+      - active_shift: bool
+      + registerVehicleEntry(vehicle): ParkingRecord
+      + assignWasher(washer, service): void
+      + registerExpense(category, amount, description): Expense
+      + updateExpense(expense_id, data): void
+      + deleteExpense(expense_id): void
+      + generateShiftReport(): ShiftReport
+      + closeShift(): void
+      + updateServiceStatus(service_id, status): void
+    }
+    
+    class Washer {
+      - bonus_rate: float
+      - current_bonus: decimal
+      - active_services: list<Service>
+      - vouchers: list<Voucher>
+      + registerServiceCompletion(service_id): void
+      + calculateDailyBonus(): decimal
+      + applyVoucherDeduction(): void
+      + viewPerformanceMetrics(): dict
+      + updateAvailability(status): void
+    }
+    
+    User <|-- GlobalAdmin
+    User <|-- OperationalAdmin
+    User <|-- Washer
+    User --> UserRole
+  }
+  
+  ' ===== VEHÍCULOS Y SERVICIOS =====
+  package "Vehicles & Services" {
+    
+    enum WashStatus {
+      WAITING
+      IN_PROCESS
+      FINISHED
+      CANCELLED
+    }
+    
+    class VehicleType {
+      - id: int
+      - name: string
+      - description: string
+      - base_rate_parking: decimal
+      - base_rate_wash: decimal
+      - helmet_fee: decimal
+      + updateRates(parking_rate, wash_rate): void
+      + getRate(type: string): decimal
+      + validateVehicle(vehicle: Vehicle): bool
+    }
+    
+    class Vehicle {
+      - id: int
+      - license_plate: string
+      - type: VehicleType
+      - brand: string
+      - model: string
+      - color: string
+      - owner_name: string
+      - is_subscribed: bool
+      - agreement_company_id: int
+      + registerEntry(type: VehicleType): void
+      + updateType(new_type: VehicleType): void
+      + linkToCompany(company: CompanyAgreement): void
+      + checkSubscriptionStatus(): bool
+      + getServiceHistory(): list<Service>
+      + getType(): VehicleType
+    }
+    
+    class WashType {
+      - id: int
+      - name: string
+      - description: string
+      - base_price: decimal
+      - duration_estimate: int
+      - free_parking_minutes: int
+      + updatePrice(new_price: decimal): void
+      + updateFreeParking(minutes: int): void
+      + getDescription(): string
+    }
+    
+    class Service {
+      - id: int
+      - vehicle: Vehicle
+      - wash_type: WashType
+      - washer: Washer
+      - admin: OperationalAdmin
+      - start_time: datetime
+      - end_time: datetime
+      - status: WashStatus
+      - include_parking: bool
+      - base_price: decimal
+      - final_price: decimal
+      - bonus_percentage: float
+      + assignWasher(washer: Washer): void
+      + start(): void
+      + finish(): void
+      + calculateFinalPrice(): decimal
+      + registerBonus(): void
+      + getDuration(): int
+      + updateStatus(new_status: WashStatus): void
+    }
+    
+    class ParkingRecord {
+      - id: int
+      - vehicle: Vehicle
+      - entry_time: datetime
+      - exit_time: datetime
+      - helmets: int
+      - is_free: bool
+      - fee: decimal
+      - calculated_by: string
+      + registerEntry(vehicle: Vehicle): void
+      + registerExit(): void
+      + calculateFee(): decimal
+      + applyFreeParking(): void
+      + calculateHelmetFee(): decimal
+      + generateReceipt(): string
+    }
+    
+    VehicleType "1" -- "*" Vehicle
+    Vehicle "1" -- "*" Service
+    Vehicle "1" -- "*" ParkingRecord
+    WashType "1" -- "*" Service
+    Service --> WashStatus
+    Service --> Washer
+    Service --> OperationalAdmin
+  }
+  
+  ' ===== TARIFAS Y CONVENIOS =====
+  package "Rates & Agreements" {
+    
+    class Rate {
+      - id: int
+      - vehicle_type: VehicleType
+      - wash_type: WashType
+      - base_price: decimal
+      - adjustment_percentage: float
+      - effective_date: date
+      + updateBasePrice(new_price: decimal): void
+      + applyAdjustment(percentage: float): void
+      + getEffectiveRate(): decimal
+    }
+    
+    class MonthlySubscription {
+      - id: int
+      - vehicle: Vehicle
+      - start_date: date
+      - end_date: date
+      - monthly_fee: decimal
+      - status: string
+      + renew(): void
+      + isExpired(): bool
+      + calculateNextPaymentDate(): date
+      + deactivate(): void
+    }
+    
+    class CompanyAgreement {
+      - id: int
+      - company_name: string
+      - discount_percentage: float
+      - service_type: string
+      - active: bool
+      + applyDiscount(service: Service): decimal
+      + updateAgreement(data): void
+      + generateCompanyReport(period): Report
+    }
+    
+    class Fleet {
+      - id: int
+      - company: CompanyAgreement
+      - vehicles: list<Vehicle>
+      - import_source: string
+      + addVehicle(vehicle: Vehicle): void
+      + removeVehicle(vehicle_id: int): void
+      + getFleetSummary(): dict
+    }
+    
+    Rate --> VehicleType
+    Rate --> WashType
+    CompanyAgreement "1" -- "*" Fleet
+    Fleet "*" -- "*" Vehicle
+    MonthlySubscription --> Vehicle
+  }
+  
+  ' ===== FINANZAS Y OPERACIONES =====
+  package "Financial & Operations" {
+    
+    enum ShiftStatus {
+      ACTIVE
+      CLOSED
+      PENDING_CLOSURE
+    }
+    
+    enum ExpenseType {
+      SUPPLIES
+      MAINTENANCE
+      UTILITIES
+      OTHER
+    }
+    
+    class Shift {
+      - id: int
+      - admin: OperationalAdmin
+      - start_time: datetime
+      - end_time: datetime
+      - total_income: decimal
+      - total_expenses: decimal
+      - vehicles_processed: int
+      - status: ShiftStatus
+      + startShift(): void
+      + closeShift(): void
+      + calculateBalance(): decimal
+      + generateSummary(): ShiftReport
+    }
+    
+    class Expense {
+      - id: int
+      - date: date
+      - category: ExpenseType
+      - description: string
+      - amount: decimal
+      - registered_by: User
+      - shift: Shift
+      + recordExpense(): void
+      + updateExpense(data): void
+      + deleteExpense(): void
+    }
+    
+    class Bonus {
+      - id: int
+      - washer: Washer
+      - date: date
+      - percentage: float
+      - total_value: decimal
+      - month_accumulated: decimal
+      + calculateDailyBonus(): decimal
+      + accumulateMonthlyBonus(): decimal
+      + adjustBonus(percentage: float): void
+      + applyVoucherDiscount(): void
+    }
+    
+    class Voucher {
+      - id: int
+      - employee: Washer
+      - amount: decimal
+      - issue_date: date
+      - installments: int
+      - remaining_balance: decimal
+      - status: string
+      + applyDeduction(bonus: Bonus): void
+      + markAsPaid(): void
+      + calculateInstallmentValue(): decimal
+      + getRemainingBalance(): decimal
+    }
+    
+    class ShiftReport {
+      - id: int
+      - shift: Shift
+      - income_total: decimal
+      - expense_total: decimal
+      - services_count: int
+      - generated_at: datetime
+      + generateReport(): void
+      + exportToPDF(): string
+      + getSummary(): dict
+    }
+    
+    Shift --> ShiftStatus
+    Shift --> OperationalAdmin
+    Shift "1" -- "*" Service
+    Shift "1" -- "*" Expense
+    Shift "1" -- "*" ParkingRecord
+    Shift "1" -- "1" ShiftReport
+    Expense --> ExpenseType
+    Bonus --> Washer
+    Voucher --> Washer
+  }
+  
+  ' ===== REPORTES Y ANALÍTICA =====
+  package "Reporting & Analytics" {
+    
+    enum ReportType {
+      DAILY
+      WEEKLY
+      MONTHLY
+      CUSTOM
+    }
+    
+    enum MetricCategory {
+      GENERAL
+      WASHES
+      EXPENSES
+      PARKING
+      EMPLOYEES
+    }
+    
+    class Report {
+      - id: int
+      - report_type: ReportType
+      - created_at: datetime
+      - data: dict
+      + generate(period): void
+      + exportCSV(): string
+      + exportPDF(): string
+    }
+    
+    class Dashboard {
+      - id: int
+      - metrics: dict
+      - period: string
+      + showMetrics(): dict
+      + filterByDateRange(start_date, end_date): void
+      + displayComparativeGraph(type: string): void
+    }
+    
+    class BusinessConfig {
+      - id: int
+      - business_name: string
+      - address: string
+      - contact_number: string
+      - default_bonus_rate: float
+      - default_free_parking_times: dict
+      - adjustment_policy: string
+      + updateConfig(data): void
+      + getCurrentConfig(): dict
+      + setBonusRate(rate: float): void
+      + setFreeParkingTime(wash_type, minutes): void
+    }
+    
+    Report --> ReportType
+    Dashboard --> MetricCategory
+  }
+}
+
+' ========================================
+' CAPA DE APLICACIÓN (Application Layer)
+' ========================================
+
+package "Application Layer" <<Application>> {
+  
+  package "Authentication Services" {
+    class AuthService {
+      - userRepository: IUserRepository
+      - emailService: EmailService
+      + login(username, password): User
+      + logout(token): void
+      + validateSession(token): bool
+      + recoverPassword(email): void
+    }
+    
+    class PasswordRecoveryService {
+      - userRepository: IUserRepository
+      - emailService: EmailService
+      + generateTemporaryPassword(user_id): string
+      + sendRecoveryEmail(email, temp_password): void
+      + updatePassword(user_id, new_password): void
+    }
+  }
+  
+  package "Operational Services" {
+    class ParkingService {
+      - parkingRepository: IParkingRecordRepository
+      - rateService: RateService
+      - vehicleRepository: IVehicleRepository
+      + registerEntry(vehicle: Vehicle): ParkingRecord
+      + registerExit(vehicle_id: int): decimal
+      + calculateFee(vehicle_id: int): decimal
+      + applyFreeParking(vehicle_id: int): void
+      + generateParkingTicket(parking_record): string
+    }
+    
+    class WashingServiceManager {
+      - washRepository: IServiceRepository
+      - rateService: RateService
+      - bonusService: BonusService
+      + registerWash(vehicle, wash_type, washer): Service
+      + startWash(wash_id: int): void
+      + finishWash(wash_id: int): void
+      + calculateWashPrice(wash_id: int): decimal
+      + generateWashReceipt(wash_id: int): string
+    }
+    
+    class ShiftService {
+      - shiftRepository: IShiftRepository
+      - reportService: FinancialReportService
+      + startShift(admin_id: int): Shift
+      + closeShift(shift_id: int): ShiftReport
+      + generateShiftSummary(shift_id: int): dict
+      + getActiveShift(admin_id: int): Shift
+    }
+  }
+  
+  package "Financial Services" {
+    class ExpenseService {
+      - expenseRepository: IExpenseRepository
+      - reportService: FinancialReportService
+      + registerExpense(data): Expense
+      + deleteExpense(expense_id: int): void
+      + getExpensesByPeriod(start, end): list<Expense>
+      + getExpenseReport(filter): Report
+    }
+    
+    class VoucherService {
+      - voucherRepository: IVoucherRepository
+      - bonusService: BonusService
+      + createVoucher(employee_id, amount, installments): Voucher
+      + applyInstallment(voucher_id: int): void
+      + markVoucherAsPaid(voucher_id: int): void
+      + getActiveVouchers(employee_id: int): list<Voucher>
+    }
+    
+    class BonusService {
+      - bonusRepository: IBonusRepository
+      - voucherService: VoucherService
+      + calculateDailyBonus(washer_id, date): decimal
+      + accumulateMonthlyBonus(washer_id, month): decimal
+      + adjustBonus(washer_id, percentage): void
+      + applyVoucherDiscount(washer_id): void
+    }
+    
+    class FinancialReportService {
+      - expenseRepository: IExpenseRepository
+      - serviceRepository: IServiceRepository
+      - bonusRepository: IBonusRepository
+      + generateMonthlyReport(month): Report
+      + generatePerformanceSummary(period): dict
+      + compareIncomeVsExpense(period): dict
+      + exportReport(format): string
+    }
+  }
+  
+  package "Agreement Services" {
+    class AgreementService {
+      - agreementRepository: ICompanyAgreementRepository
+      - fleetRepository: IFleetRepository
+      + createAgreement(data): CompanyAgreement
+      + updateAgreement(agreement_id, data): void
+      + applyDiscount(service_id: int): decimal
+      + generateAgreementReport(company_id, period): Report
+    }
+    
+    class FleetImportService {
+      - fleetRepository: IFleetRepository
+      - excelImporter: ExcelImporter
+      + importFromFile(file_path: string): list<Vehicle>
+      + validateVehiclesData(data): bool
+      + saveFleet(company_id, vehicles): void
+    }
+  }
+  
+  package "Configuration Services" {
+    class RateService {
+      - rateRepository: IRateRepository
+      - configService: BusinessConfigService
+      + getRate(vehicle_type, wash_type): decimal
+      + updateRate(rate_id, data): void
+      + applyGlobalAdjustment(percentage: float): void
+    }
+    
+    class BusinessConfigService {
+      - configRepository: IBusinessConfigRepository
+      + updateConfig(data): void
+      + getCurrentConfig(): BusinessConfig
+      + setBonusRate(rate: float): void
+      + setFreeParkingTime(wash_type, minutes): void
+    }
+  }
+  
+  package "Analytics Services" {
+    class DashboardService {
+      - reportService: FinancialReportService
+      - metricService: MetricService
+      - chartService: ChartService
+      + getOverview(period): dict
+      + getCategoryData(category, filter): dict
+      + generateDashboardView(period): Dashboard
+    }
+    
+    class MetricService {
+      - washingRepository: IServiceRepository
+      - parkingRepository: IParkingRecordRepository
+      - expenseRepository: IExpenseRepository
+      - bonusRepository: IBonusRepository
+      + calculateOccupancyRate(period): float
+      + calculateAverageIncome(period): decimal
+      + calculateAverageExpense(period): decimal
+      + calculatePerformanceMetrics(period): dict
+    }
+    
+    class ChartService {
+      - dataSource: FinancialReportService
+      + generateLineChart(data, x_field, y_field): string
+      + generateBarChart(data, x_field, y_field): string
+      + generateComparisonChart(income_data, expense_data): string
+      + exportChart(format): string
+    }
+  }
+  
+  ' Relaciones entre servicios de aplicación
+  AuthService ..> User
+  PasswordRecoveryService ..> User
+  ParkingService ..> ParkingRecord
+  ParkingService ..> Vehicle
+  WashingServiceManager ..> Service
+  ShiftService ..> Shift
+  ExpenseService ..> Expense
+  VoucherService ..> Voucher
+  BonusService ..> Bonus
+  AgreementService ..> CompanyAgreement
+  FleetImportService ..> Fleet
+  RateService ..> Rate
+  BusinessConfigService ..> BusinessConfig
+  DashboardService ..> Dashboard
+  MetricService ..> Service
+  FinancialReportService ..> Report
+}
+
+' ========================================
+' CAPA DE INFRAESTRUCTURA (Infrastructure Layer)
+' ========================================
+
+package "Infrastructure Layer" <<Infrastructure>> {
+  
+  package "Database" {
+    class DatabaseManager {
+      - connection_string: string
+      - connection_pool: Pool
+      - status: string
+      + connect(): void
+      + disconnect(): void
+      + executeQuery(query, params): ResultSet
+      + startTransaction(): void
+      + commitTransaction(): void
+      + rollbackTransaction(): void
+      + getConnectionStatus(): string
+    }
+    
+    ' Note: abstract Repository<T> intentionally omitted to reduce diagram noise.
+    ' Concrete repository implementations are shown in the Repositories Implementation section.
+  }
+  
+  package "Repositories Implementation" {
+    ' Concrete repository implementations (simplified - interfaces/abstract base omitted)
+    class UserRepository
+    class VehicleRepository
+    class ServiceRepository
+    class ParkingRecordRepository
+    class ShiftRepository
+    class ExpenseRepository
+    class BonusRepository
+    class VoucherRepository
+    class RateRepository
+    class CompanyAgreementRepository
+    class FleetRepository
+    class BusinessConfigRepository
+  }
+  
+  package "External Services" {
+    class EmailService {
+      - smtp_server: string
+      - port: int
+      - username: string
+      - password: string
+      - sender_address: string
+      + sendEmail(recipient, subject, message): bool
+      + sendRecoveryEmail(recipient, temp_password): bool
+      + sendReport(recipient, attachment): bool
+      + configureServer(settings): void
+    }
+    
+    class Logger {
+      - log_file_path: string
+      - log_level: string
+      - timestamp_format: string
+      + logInfo(message): void
+      + logWarning(message): void
+      + logError(message, exception): void
+      + logDebug(message): void
+      + exportLogs(period): string
+    }
+  }
+  
+  package "Import/Export Services" {
+    class CSVExporter {
+      - delimiter: string
+      - encoding: string
+      - file_path: string
+      + exportData(data, headers): string
+      + writeToFile(filename): bool
+      + validateStructure(data): bool
+    }
+    
+    class PDFExporter {
+      - template: string
+      - file_path: string
+      - author: string
+      + exportReport(data, title): string
+      + generateInvoice(entity): string
+      + addChart(chart_data): void
+      + saveFile(filename): bool
+    }
+    
+    class ExcelImporter {
+      - file_path: string
+      - columns_mapping: dict
+      - data_rows: list
+      + readFile(file_path): bool
+      + validateHeaders(): bool
+      + parseData(): list
+      + convertToEntities(entity_type): list
+    }
+  }
+}
+
+' ========================================
+' RELACIONES ENTRE CAPAS
+' ========================================
+
+' Application -> Infrastructure (Dependency Injection)
+AuthService ..> UserRepository
+AuthService ..> EmailService
+PasswordRecoveryService ..> UserRepository
+PasswordRecoveryService ..> EmailService
+ParkingService ..> ParkingRecordRepository
+ParkingService ..> VehicleRepository
+WashingServiceManager ..> ServiceRepository
+ShiftService ..> ShiftRepository
+ExpenseService ..> ExpenseRepository
+VoucherService ..> VoucherRepository
+BonusService ..> BonusRepository
+AgreementService ..> CompanyAgreementRepository
+AgreementService ..> FleetRepository
+FleetImportService ..> FleetRepository
+FleetImportService ..> ExcelImporter
+RateService ..> RateRepository
+BusinessConfigService ..> BusinessConfigRepository
+MetricService ..> ServiceRepository
+MetricService ..> ParkingRecordRepository
+MetricService ..> ExpenseRepository
+MetricService ..> BonusRepository
+FinancialReportService ..> ExpenseRepository
+FinancialReportService ..> ServiceRepository
+FinancialReportService ..> BonusRepository
+FinancialReportService ..> CSVExporter
+FinancialReportService ..> PDFExporter
+
+' Servicios entre sí
+ParkingService ..> RateService
+WashingServiceManager ..> RateService
+WashingServiceManager ..> BonusService
+ShiftService ..> FinancialReportService
+ExpenseService ..> FinancialReportService
+VoucherService ..> BonusService
+DashboardService ..> FinancialReportService
+DashboardService ..> MetricService
+DashboardService ..> ChartService
+
+' Notes
+note right of "Domain Layer"
+  Contiene la lógica de negocio,
+  entidades, value objects y
+  reglas de dominio.
+  NO depende de otras capas.
+end note
+
+note right of "Application Layer"
+  Orquesta casos de uso del negocio.
+  Coordina entre dominio e infraestructura.
+  Implementa servicios de aplicación.
+end note
+
+note right of "Infrastructure Layer"
+  Implementa detalles técnicos:
+  - Persistencia (Repositories)
+  - Servicios externos (Email)
+  - Import/Export
+  - Logging
+end note
+
+@enduml

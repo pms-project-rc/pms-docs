@@ -1,0 +1,185 @@
+@startuml carwash_architecture_c4
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/devicons
+!define FONTAWESOME https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/master/font-awesome-5
+!include DEVICONS/react.puml
+!include DEVICONS/python.puml
+!include DEVICONS/postgresql.puml
+!include FONTAWESOME/users.puml
+
+LAYOUT_WITH_LEGEND()
+
+' Improve layout: force orthogonal connectors and increase spacing to avoid overlaps
+ ' Primary attempt: prefer orthogonal splines (Graphviz support may vary)
+ skinparam splines ortho
+ skinparam nodesep 60
+ skinparam ranksep 60
+ skinparam padding 10
+ skinparam dpi 150
+
+ ' Additional fallbacks/alternatives to try when "splines ortho" isn't respected by the renderer
+ ' These guide PlantUML/Graphviz toward straight polyline edges where possible.
+ ' Depending on PlantUML/Graphviz version some keys may be ignored — we keep them as safe fallbacks.
+ skinparam linetype ortho
+ skinparam splines polyline
+ skinparam ArrowFontName Arial
+ skinparam ArrowThickness 1
+
+title Car Wash & Parking Management System - C4 Container Diagram
+
+Person(admin, "Global Administrator", "Owner of the car wash business. Manages configurations, rates, agreements, and financial reports.", $sprite="users")
+Person(operator, "Operational Administrator", "Manages daily operations during shifts. Registers vehicles, assigns washers, records expenses.", $sprite="users")
+Person(washer, "Washer Employee", "Performs washing services. Views bonus tracking and performance metrics.", $sprite="users")
+
+System_Boundary(carwash_system, "Car Wash & Parking Management System") {
+    
+    ' ========================================
+    ' FRONTEND CONTAINERS
+    ' ========================================
+    Container(admin_spa, "Admin Dashboard", "React + Tailwind CSS", "Provides global administration interface for configurations, reports, and analytics. Single-Page Application.", $sprite="react")
+    Container(operator_spa, "Operational Panel", "React + Tailwind CSS", "Provides shift management interface for vehicle registration, service assignment, and expense tracking.", $sprite="react")
+    Container(washer_spa, "Washer Portal", "React + Tailwind CSS", "Provides washer interface for viewing assigned services, daily bonuses, and performance.", $sprite="react")
+    
+    ' ========================================
+    ' API GATEWAY
+    ' ========================================
+    Container(api_gateway, "API Gateway", "FastAPI (Python)", "Provides REST API endpoints. Handles authentication (JWT), CORS, logging, and request routing.", $sprite="python")
+    
+    ' ========================================
+    ' APPLICATION SERVICES
+    ' ========================================
+    Container_Boundary(app_services, "Application Services Layer") {
+        Container(auth_service, "Authentication Service", "Python", "Handles user login, logout, JWT token generation, and password recovery.")
+        Container(parking_service, "Parking Service", "Python", "Manages parking entries/exits, fee calculation, and free parking rules.")
+        Container(washing_service, "Washing Service", "Python", "Manages washing service registration, washer assignment, status updates")
+        Container(shift_service, "Shift Service", "Python", "Manages shift start/close, generates shift reports with income/expenses.")
+        Container(bonus_service, "Bonus Service", "Python", "Calculates daily/monthly bonuses. Applies holiday rates and voucher deductions.")
+        Container(expense_service, "Expense Service", "Python", "CRUD operations for expenses. Categorizes by type.")
+        Container(financial_service, "Financial Report Service", "Python", "Generates monthly reports, income vs expense analysis, and performance metrics.")
+        Container(analytics_service, "Analytics Service", "Python", "Calculates KPIs, occupancy rates, average income/expenses. Provides dashboard data.")
+        Container(rate_service, "Rate Service", "Python", "Manages pricing rates by vehicle type and wash type. Handles global price adjustments.")
+        Container(agreement_service, "Agreement Service", "Python", "Manages company agreements, fleet imports (Excel/CSV), discount applications.")
+    }
+    
+    ' ========================================
+    ' INFRASTRUCTURE LAYER
+    ' ========================================
+    Container_Boundary(infrastructure, "Infrastructure Layer") {
+        Container(orm, "SQLAlchemy ORM", "Python", "Object-Relational Mapping layer. Maps domain entities to database tables using Repository pattern.")
+        Container(email_service, "Email Service", "Python SMTP", "Sends password recovery emails and shift reports to administrators.")
+        Container(logger, "Logger Service", "Python Logging", "Logs application events, errors, and audit trails to files/console.")
+    }
+    
+    ' ========================================
+    ' DATA STORAGE
+    ' ========================================
+    ContainerDb(database, "PostgreSQL Database", "PostgreSQL 15", "Stores all system data: users, vehicles, services, shifts, expenses, bonuses, rates, agreements.", $sprite="postgresql")
+    ContainerDb(cache, "Redis Cache", "Redis (Future)", "Session management and caching layer. Future enhancement for performance optimization.", $tags="future")
+}
+
+' ========================================
+' RELATIONSHIPS - Users to Frontend
+' ========================================
+Rel(admin, admin_spa, "Uses", "HTTPS")
+Rel(operator, operator_spa, "Uses", "HTTPS")
+Rel(washer, washer_spa, "Uses", "HTTPS")
+
+' ========================================
+' RELATIONSHIPS - Frontend to API Gateway
+' ========================================
+Rel(admin_spa, api_gateway, "Makes API calls to", "JSON/HTTPS\n[GET, POST, PUT, DELETE]")
+Rel(operator_spa, api_gateway, "Makes API calls to", "JSON/HTTPS\n[GET, POST, PUT, DELETE]")
+Rel(washer_spa, api_gateway, "Makes API calls to", "JSON/HTTPS\n[GET]")
+
+' ========================================
+' RELATIONSHIPS - API Gateway to Services
+' ========================================
+Rel(api_gateway, auth_service, "Routes /api/auth/*", "Dependency Injection")
+Rel(api_gateway, parking_service, "Routes /api/parking/*", "Dependency Injection")
+Rel(api_gateway, washing_service, "Routes /api/washing/*", "Dependency Injection")
+Rel(api_gateway, shift_service, "Routes /api/shifts/*", "Dependency Injection")
+Rel(api_gateway, analytics_service, "Routes /api/analytics/*", "Dependency Injection")
+Rel(api_gateway, expense_service, "Routes /api/expenses/*", "Dependency Injection")
+Rel(api_gateway, agreement_service, "Routes /api/agreements/*", "Dependency Injection")
+
+' ========================================
+' RELATIONSHIPS - Service Dependencies
+' ========================================
+Rel(parking_service, rate_service, "Uses", "Get parking rates")
+Rel(washing_service, rate_service, "Uses", "Get washing rates")
+Rel(washing_service, bonus_service, "Uses", "Calculate washer bonus")
+Rel(shift_service, financial_service, "Uses", "Generate shift reports")
+Rel(bonus_service, expense_service, "Uses", "Apply voucher deductions")
+Rel(analytics_service, financial_service, "Uses", "Get financial metrics")
+
+' ========================================
+' RELATIONSHIPS - Services to Infrastructure
+' ========================================
+Rel(auth_service, orm, "Uses", "UserRepository")
+Rel(parking_service, orm, "Uses", "ParkingRecordRepository\nVehicleRepository")
+Rel(washing_service, orm, "Uses", "ServiceRepository\nVehicleRepository")
+Rel(shift_service, orm, "Uses", "ShiftRepository")
+Rel(bonus_service, orm, "Uses", "BonusRepository\nVoucherRepository")
+Rel(expense_service, orm, "Uses", "ExpenseRepository")
+Rel(rate_service, orm, "Uses", "RateRepository")
+Rel(agreement_service, orm, "Uses", "AgreementRepository\nFleetRepository")
+Rel(analytics_service, orm, "Uses", "Multiple Repositories")
+Rel(financial_service, orm, "Uses", "Multiple Repositories")
+
+' ========================================
+' RELATIONSHIPS - External Services
+' ========================================
+Rel(auth_service, email_service, "Uses", "Send recovery emails")
+Rel(shift_service, email_service, "Uses", "Send shift reports")
+Rel(api_gateway, logger, "Uses", "Log requests/errors")
+Rel(auth_service, logger, "Uses", "Log authentication events")
+
+' ========================================
+' RELATIONSHIPS - Database
+' ========================================
+Rel(orm, database, "Reads from and writes to", "SQL Queries\n[PostgreSQL Protocol]")
+Rel(auth_service, cache, "Uses", "Session storage", $tags="future")
+
+' ========================================
+' NOTES
+' ========================================
+note right of admin_spa
+  **Frontend Technologies:**
+  - React 18+
+  - Tailwind CSS
+  - Axios (HTTP client)
+  - React Router
+  - Recharts (for analytics)
+end note
+
+note right of api_gateway
+  **API Gateway Features:**
+  - JWT Authentication
+  - CORS Middleware
+  - Request Validation
+  - Rate Limiting
+  - Error Handling
+  - API Documentation (Swagger)
+end note
+
+note right of database
+  **Database Schema:**
+  - 15+ tables (users, vehicles, services, etc.)
+  - Foreign key constraints
+  - Indexes on frequently queried fields
+  - Transaction support
+  - Audit logging
+end note
+
+note bottom of app_services
+  **Application Layer follows DDD principles:**
+  - Domain-driven design
+  - Dependency inversion (interfaces)
+  - Single responsibility
+  - Business logic isolation
+end note
+
+SHOW_LEGEND()
+
+@enduml
