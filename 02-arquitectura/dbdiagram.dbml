@@ -79,6 +79,8 @@ Table washing_services {
   admin_id integer [not null, ref: > operational_admins.id]
   service_type varchar [not null]
   service_date timestamp [not null]
+  start_time timestamp
+  end_time timestamp
   price integer [not null, note: 'En centavos']
   payment_status varchar [default: 'pending']
   notes varchar
@@ -256,6 +258,19 @@ Table business_config {
   data_type varchar [default: 'string']
   is_active boolean [default: true]
   updated_by integer [not null, ref: > global_admins.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+Table employee_advances {
+  id integer [pk, increment]
+  washer_id integer [not null, ref: > washers.id]
+  total_amount integer [not null, note: 'En centavos']
+  number_of_installments integer [not null]
+  installment_amount integer [not null, note: 'En centavos']
+  remaining_amount integer [not null, note: 'En centavos']
+  status varchar [default: 'active', note: 'active, paid, cancelled']
+  description varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
 }

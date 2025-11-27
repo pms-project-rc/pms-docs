@@ -56,16 +56,21 @@
 
 ---
 
-### Dev C (Jaime Darley) - Frontend, UI/UX
-**Responsabilidades**: Todas las interfaces de usuario y experiencia.
+### Dev C y Dev D (Equipo Frontend y Soporte)
+**Responsabilidades**: Desarrollo Frontend completo, UI/UX, Soporte a módulos auxiliares y Testing.
 
 **Historias Asignadas**:
+- **HU-04/05/06**: CRUD de perfiles de lavadores (Backend ya implementado)
+- **HU-30**: Asignación de lavadores (Control)
 - Implementación de todas las vistas frontend para las HU asignadas a Dev A y Dev B
 - Diseño de componentes reutilizables con React y Tailwind CSS
 - Implementación de formularios de gestión (lavadores, vehículos, etc.)
 - Dashboards y visualizaciones gráficas
 - Responsive design para acceso móvil
 - Sistema de navegación y menús
+- Soporte en testing e integración
+- Documentación técnica
+- Scripts de utilidad y mantenimiento
 
 **Entregables Adicionales**:
 - Setup de Vite + React 18
@@ -73,20 +78,6 @@
 - Biblioteca de componentes base
 - Sistema de routing
 - Integración con APIs del backend
-
----
-
-### Dev D (Jeremy Lee) - Soporte, Módulos Auxiliares
-**Responsabilidades**: CRUD de lavadores, soporte a otros módulos, testing.
-
-**Historias Asignadas**:
-- **HU-04/05/06**: CRUD de perfiles de lavadores
-- **HU-30**: Asignación de lavadores (Control)
-- Soporte en testing e integración
-- Documentación técnica
-- Scripts de utilidad y mantenimiento
-
-**Entregables Adicionales**:
 - Tests unitarios e integración
 - Documentación de APIs
 - Scripts de seed de datos iniciales
@@ -99,24 +90,20 @@
 ### Fase 1 - Fundamentos (Semanas 1-2)
 - **Dev A**: Arquitectura base, autenticación, setup BD
 - **Dev B**: Modelos de dominio core
-- **Dev C**: Setup frontend, componentes base
-- **Dev D**: CRUD lavadores, testing framework
+- **Dev C y Dev D**: Setup frontend, componentes base, CRUD lavadores, testing framework
 
 ### Fase 2 - Operativo (Semanas 3-5)
 - **Dev A**: Módulo financiero básico
 - **Dev B**: Parqueadero y lavado completo
-- **Dev C**: Interfaces operativas
-- **Dev D**: Soporte y testing
+- **Dev C y Dev D**: Interfaces operativas, Soporte y testing
 
 ### Fase 3 - Comercial (Semanas 6-7)
 - **Dev B**: Tarifas, mensualidades, convenios
-- **Dev C**: Interfaces comerciales
-- **Dev A y Dev D**: Soporte
+- **Dev C y Dev D**: Interfaces comerciales, Soporte
 
 ### Fase 4 - Analítica (Semanas 8-9)
 - **Dev A**: Reportes y dashboards backend
-- **Dev C**: Visualizaciones y gráficas
-- **Dev B y Dev D**: Soporte y testing
+- **Dev C y Dev D**: Visualizaciones y gráficas, Soporte y testing
 
 ### Fase 5 - Integración y Testing (Semana 10)
 - Todo el equipo: Testing integral, correcciones, optimizaciones
