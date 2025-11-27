@@ -1,15 +1,16 @@
 ///////////////////////////////////////////////////////
 // Car Wash & Parking Management System - Domain Model
-// Updated: 2025-11-20
-// Includes: bicycles, audit trails, notifications, agreement approvals
+// Updated: 2025-11-27
+// Includes: All recent schema updates (shift_id, admin_id, helmet_count, etc.)
 ///////////////////////////////////////////////////////
 
 // === USERS & ROLES ===
 Table global_admins {
   id integer [pk, increment]
-  username varchar [unique, not null]
-  password_hash varchar [not null]
   email varchar [unique, not null]
+  password_hash varchar [not null]
+  full_name varchar [not null]
+  phone varchar
   is_active boolean [default: true]
   last_login timestamp
   created_at timestamp [default: `now()`]
@@ -18,11 +19,10 @@ Table global_admins {
 
 Table operational_admins {
   id integer [pk, increment]
-  username varchar [unique, not null]
-  password_hash varchar [not null]
   email varchar [unique, not null]
-  supervisor_id integer [ref: > global_admins.id, note: 'Global admin who created this account']
-  current_shift_id integer [ref: > shifts.id, note: 'Active shift if logged in']
+  password_hash varchar [not null]
+  full_name varchar [not null]
+  phone varchar
   is_active boolean [default: true]
   last_login timestamp
   created_at timestamp [default: `now()`]
@@ -31,10 +31,13 @@ Table operational_admins {
 
 Table washers {
   id integer [pk, increment]
-  name varchar [not null]
-  id_number varchar [unique, not null, note: 'National ID or employee number']
-  bonus_percentage decimal [not null, default: 0, note: 'Individual bonus rate (0-100)']
-  active boolean [default: true]
+  email varchar [unique, not null]
+  password_hash varchar [not null]
+  full_name varchar [not null]
+  phone varchar
+  commission_percentage integer [default: 0, note: '0-100']
+  is_active boolean [default: true]
+  last_login timestamp
   created_at timestamp [default: `now()`]
   updated_at timestamp
 }
@@ -42,11 +45,12 @@ Table washers {
 // Password recovery tokens
 Table password_reset_tokens {
   id integer [pk, increment]
-  user_id integer [not null, note: 'References global_admins or operational_admins']
-  user_type varchar [not null, note: 'global_admin or operational_admin']
+  user_type varchar [not null, note: 'global_admin, operational_admin, washer']
+  user_id integer [not null]
   token varchar [unique, not null]
-  expires_at timestamp [not null, note: 'Valid for 1 hour']
-  used boolean [default: false]
+  expires_at timestamp [not null]
+  is_used boolean [default: false]
+  used_at timestamp
   created_at timestamp [default: `now()`]
 }
 
@@ -54,105 +58,75 @@ Table password_reset_tokens {
 Table vehicles {
   id integer [pk, increment]
   plate varchar [unique, not null]
-  type varchar [not null, note: 'carro, moto, camion, bicicleta']
+  owner_name varchar [not null]
+  owner_phone varchar
+  vehicle_type varchar [not null, note: 'Moto, Carro, etc.']
   brand varchar
   model varchar
   color varchar
-  owner_name varchar
-  subscription_id integer [ref: > monthly_subscriptions.id]
-  agreement_id integer [ref: > agreements.id]
+  is_frequent boolean [default: false]
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
-  
-  indexes {
-    plate [unique]
-    type
-  }
 }
 
 Table washing_services {
   id integer [pk, increment]
   vehicle_id integer [not null, ref: > vehicles.id]
-  washer_id integer [not null, ref: > washers.id]
+  parking_record_id integer [unique, ref: - parking_records.id]
+  washer_id integer [ref: > washers.id]
   shift_id integer [not null, ref: > shifts.id]
-  rate_id integer [not null, ref: > rates.id]
-  admin_id integer [not null, ref: > operational_admins.id, note: 'Who registered the service']
-  wash_type varchar [not null, note: 'lavado_general, lavado_cera, etc.']
-  status varchar [not null, default: 'WAITING', note: 'WAITING, IN_PROCESS, FINISHED, CANCELLED']
-  include_parking boolean [default: true]
-  started_at timestamp
-  finished_at timestamp
-  base_price decimal [not null]
-  final_price decimal [note: 'After discounts/adjustments']
-  agreement_discount decimal [default: 0, note: 'Discount applied from company agreement']
-  is_agreement_service boolean [default: false]
-  agreement_approved boolean [default: false, note: 'Approved by global admin for billing']
-  approved_by integer [ref: > global_admins.id]
-  approved_at timestamp
+  admin_id integer [not null, ref: > operational_admins.id]
+  service_type varchar [not null]
+  service_date timestamp [not null]
+  price integer [not null, note: 'En centavos']
+  payment_status varchar [default: 'pending']
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
-  
-  indexes {
-    (vehicle_id, shift_id)
-    (washer_id, status)
-    status
-  }
 }
 
 Table parking_records {
   id integer [pk, increment]
   vehicle_id integer [not null, ref: > vehicles.id]
-  admin_id integer [not null, ref: > operational_admins.id]
   shift_id integer [not null, ref: > shifts.id]
+  admin_id integer [not null, ref: > operational_admins.id]
   entry_time timestamp [not null]
   exit_time timestamp
-  vehicle_type varchar [not null, note: 'carro, moto, camion, bicicleta']
-  helmet_count integer [default: 0, note: 'Only for motos']
-  helmet_charge decimal [default: 0, note: '1000 COP per helmet']
-  base_rate_id integer [ref: > rates.id]
-  free_parking_minutes integer [default: 0, note: 'From washing service if applicable']
-  total_minutes integer [note: 'Calculated duration']
-  billable_minutes integer [note: 'After free_parking_minutes deduction']
-  parking_fee decimal [default: 0]
-  total_charge decimal [note: 'parking_fee + helmet_charge']
-  is_exempted boolean [default: false, note: 'Manual exemption flag']
-  exemption_reason text [note: 'Required if is_exempted = true']
-  exempted_by integer [ref: > operational_admins.id, note: 'Who approved exemption']
-  exempted_at timestamp
+  parking_rate_id integer [not null, ref: > rates.id]
+  subscription_id integer [ref: > monthly_subscriptions.id]
+  washing_service_id integer [ref: > washing_services.id]
+  helmet_count integer [default: 0]
+  helmet_charge integer [default: 0, note: 'En centavos']
+  total_cost integer [default: 0, note: 'En centavos']
+  payment_status varchar [default: 'pending']
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
-  
-  indexes {
-    (vehicle_id, entry_time)
-    (shift_id, exit_time)
-  }
 }
 
 Table shifts {
   id integer [pk, increment]
   admin_id integer [not null, ref: > operational_admins.id]
+  shift_date date [not null]
   start_time timestamp [not null]
   end_time timestamp
-  status varchar [not null, default: 'OPEN', note: 'OPEN, CLOSED']
-  total_income decimal [default: 0]
-  total_expenses decimal [default: 0]
-  total_bonuses decimal [default: 0]
+  initial_cash integer [default: 0, note: 'En centavos']
+  final_cash integer [note: 'En centavos']
+  total_income integer [default: 0, note: 'En centavos']
+  total_expenses integer [default: 0, note: 'En centavos']
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
-  
-  indexes {
-    (admin_id, start_time)
-    status
-  }
 }
 
 Table expenses {
   id integer [pk, increment]
-  shift_id integer [not null, ref: > shifts.id]
-  category varchar [not null, note: 'materiales, servicios, mantenimiento, otros']
-  description text [not null]
-  amount decimal [not null]
-  created_by integer [not null, ref: > operational_admins.id]
+  shift_id integer [ref: > shifts.id]
+  expense_type varchar [not null]
+  amount integer [not null, note: 'En centavos']
+  description varchar [not null]
+  expense_date date [not null]
   created_at timestamp [default: `now()`]
   updated_at timestamp
 }
@@ -161,31 +135,22 @@ Table expenses {
 Table bonuses {
   id integer [pk, increment]
   washer_id integer [not null, ref: > washers.id]
-  shift_id integer [ref: > shifts.id, note: 'Daily bonus calculation']
-  period_start date [not null, note: 'For monthly aggregation']
-  period_end date [not null]
-  base_amount decimal [not null, note: 'Sum of (service_price * bonus_percentage)']
-  voucher_deductions decimal [default: 0]
-  final_amount decimal [not null, note: 'base_amount - voucher_deductions']
-  is_paid boolean [default: false]
-  paid_at timestamp
+  shift_id integer [ref: > shifts.id]
+  amount integer [not null, note: 'En centavos']
+  reason varchar
+  bonus_date date [not null]
   created_at timestamp [default: `now()`]
-  
-  indexes {
-    (washer_id, period_start, period_end)
-  }
+  updated_at timestamp
 }
 
 Table vouchers {
   id integer [pk, increment]
-  washer_id integer [not null, ref: > washers.id]
-  total_amount decimal [not null, note: 'Total loan amount']
-  installments integer [not null, note: 'Number of payment periods (quincenas)']
-  installment_amount decimal [not null, note: 'Amount per period']
-  remaining_balance decimal [not null]
-  remaining_installments integer [not null]
-  is_fully_paid boolean [default: false]
-  created_by integer [not null, ref: > global_admins.id]
+  voucher_number varchar [unique, not null]
+  entity varchar [not null]
+  amount integer [not null, note: 'En centavos']
+  payment_date date [not null]
+  reference_number varchar
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
 }
@@ -193,148 +158,104 @@ Table vouchers {
 // === CONFIGURATIONS ===
 Table rates {
   id integer [pk, increment]
-  vehicle_type varchar [not null, note: 'carro, moto, camion, bicicleta']
-  wash_type varchar [note: 'lavado_general, lavado_cera, etc. NULL for parking-only rates']
-  service_type varchar [not null, note: 'parking, washing']
-  base_price decimal [not null]
-  price_per_minute decimal [note: 'For parking rates (0-6h)']
-  flat_rate_6_12h decimal [note: 'Flat rate for 6-12h parking']
-  free_parking_minutes integer [default: 0, note: 'Free parking included with wash']
-  effective_from date [not null, default: `now()`]
-  effective_until date [note: 'NULL if currently active']
-  created_by integer [not null, ref: > global_admins.id]
+  vehicle_type varchar [not null]
+  rate_type varchar [not null]
+  price integer [not null, note: 'En centavos']
+  description varchar
+  is_active boolean [default: true]
   created_at timestamp [default: `now()`]
-  
-  indexes {
-    (vehicle_type, wash_type, effective_from)
-    (service_type, vehicle_type)
-  }
+  updated_at timestamp
 }
 
 // === MONTHLY SUBSCRIPTIONS & AGREEMENTS ===
 Table monthly_subscriptions {
   id integer [pk, increment]
   vehicle_id integer [not null, ref: > vehicles.id]
-  vehicle_type varchar [not null, note: 'carro, moto, camion, bicicleta']
-  monthly_fee decimal [not null, note: 'carro:170k, moto:70k, camion:300k, bicicleta:40k']
   start_date date [not null]
-  end_date date [not null, note: 'start_date + 30 days']
-  is_active boolean [default: true]
-  alert_sent boolean [default: false, note: 'Alert when <= 5 days remaining']
-  created_by integer [not null, ref: > operational_admins.id]
+  end_date date [not null]
+  monthly_fee integer [not null, note: 'En centavos']
+  payment_status varchar [default: 'pending']
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
-  
-  indexes {
-    (vehicle_id, is_active)
-    end_date
-  }
 }
 
 Table agreements {
   id integer [pk, increment]
-  company_name varchar [unique, not null]
-  company_nit varchar [unique, not null]
-  contact_name varchar
-  contact_email varchar
+  company_name varchar [not null]
+  contact_name varchar [not null]
   contact_phone varchar
-  discount_percentage decimal [not null, note: 'Discount on washing services']
-  applicable_services text [note: 'JSON array of wash types covered']
-  payment_terms varchar [default: 'postpaid', note: 'postpaid or prepaid']
-  is_active boolean [default: true]
-  created_by integer [not null, ref: > global_admins.id]
+  contact_email varchar
+  start_date date [not null]
+  end_date date
+  discount_percentage integer [default: 0]
+  special_rate integer [note: 'En centavos']
+  is_active varchar [default: 'active']
+  notes varchar
   created_at timestamp [default: `now()`]
   updated_at timestamp
 }
 
-Table fleet_vehicles {
+Table agreement_vehicles {
   id integer [pk, increment]
   agreement_id integer [not null, ref: > agreements.id]
   vehicle_id integer [not null, ref: > vehicles.id]
-  driver_name varchar
-  driver_id varchar
-  notes text
-  is_active boolean [default: true]
   created_at timestamp [default: `now()`]
-  
-  indexes {
-    (agreement_id, vehicle_id) [unique]
-  }
+  updated_at timestamp
 }
 
 // === AUDIT & NOTIFICATIONS ===
 Table audit_logs {
   id integer [pk, increment]
-  entity_type varchar [not null, note: 'parking_record, washing_service, rate, etc.']
-  entity_id integer [not null]
-  action varchar [not null, note: 'CREATE, UPDATE, DELETE, EXEMPT, APPROVE']
-  field_changed varchar [note: 'Field name if UPDATE']
-  old_value text
-  new_value text
-  reason text [note: 'Required for exemptions and corrections']
-  performed_by_type varchar [not null, note: 'global_admin, operational_admin']
-  performed_by_id integer [not null]
+  user_type varchar [not null]
+  user_id integer [not null]
+  action varchar [not null]
+  entity_type varchar
+  entity_id integer
+  details text
   ip_address varchar
-  created_at timestamp [default: `now()`]
-  
-  indexes {
-    (entity_type, entity_id)
-    (performed_by_type, performed_by_id, created_at)
-  }
+  timestamp timestamp [default: `now()`]
 }
 
 Table notifications {
   id integer [pk, increment]
-  recipient_type varchar [not null, note: 'global_admin, operational_admin']
+  recipient_type varchar [not null]
   recipient_id integer [not null]
-  notification_type varchar [not null, note: 'exemption, subscription_expiring, agreement_approval_pending']
+  notification_type varchar [not null]
   title varchar [not null]
   message text [not null]
-  related_entity_type varchar
-  related_entity_id integer
   is_read boolean [default: false]
   read_at timestamp
   created_at timestamp [default: `now()`]
-  
-  indexes {
-    (recipient_type, recipient_id, is_read)
-    created_at
-  }
 }
 
 // === REPORTS ===
 Table financial_reports {
   id integer [pk, increment]
-  report_type varchar [not null, note: 'shift, daily, weekly, monthly']
-  shift_id integer [ref: > shifts.id]
-  period_start date [not null]
-  period_end date [not null]
-  total_income decimal [not null]
-  total_expenses decimal [not null]
-  total_bonuses decimal [not null]
-  performance decimal [not null, note: 'income - (expenses + bonuses)']
+  report_type varchar [not null]
+  report_date timestamp [not null]
   generated_by integer [not null, ref: > global_admins.id]
+  shift_id integer [ref: > shifts.id]
+  total_income integer [default: 0]
+  total_expenses integer [default: 0]
+  net_profit integer [default: 0]
+  parking_count integer [default: 0]
+  washing_count integer [default: 0]
+  subscription_count integer [default: 0]
+  report_data text
   created_at timestamp [default: `now()`]
-  
-  indexes {
-    (report_type, period_start, period_end)
-  }
+  updated_at timestamp
 }
 
 // === BUSINESS CONFIGURATION ===
 Table business_config {
   id integer [pk, increment]
-  config_key varchar [unique, not null, note: 'global_bonus_percentage, helmet_fee, data_retention_days, etc.']
-  config_value text [not null]
-  config_type varchar [not null, note: 'decimal, integer, string, boolean, json']
-  description text
+  config_key varchar [unique, not null]
+  config_value varchar [not null]
+  description varchar
+  data_type varchar [default: 'string']
+  is_active boolean [default: true]
   updated_by integer [not null, ref: > global_admins.id]
   created_at timestamp [default: `now()`]
   updated_at timestamp
 }
-
-///////////////////////////////////////////////////////
-// END OF DATABASE SCHEMA
-// Note: Most references are defined inline with [ref: >] notation above.
-// Additional complex relationships can be defined here if needed.
-///////////////////////////////////////////////////////
